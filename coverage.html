@@ -1,0 +1,1055 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>web: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">appsceoncept/cmd/web/main.go (0.0%)</option>
+				
+				<option value="file1">appsceoncept/internal/app.go (93.8%)</option>
+				
+				<option value="file2">appsceoncept/internal/htpp_handler_metrics.go (71.4%)</option>
+				
+				<option value="file3">appsceoncept/internal/http_handler_fizzbuzz.go (100.0%)</option>
+				
+				<option value="file4">appsceoncept/internal/metrics/metrics.go (0.0%)</option>
+				
+				<option value="file5">appsceoncept/tests/fake/fake.go (0.0%)</option>
+				
+				<option value="file6">appsceoncept/tests/mocks/metrics.go (0.0%)</option>
+				
+				<option value="file7">appsceoncept/utils/loggin.go (0.0%)</option>
+				
+				<option value="file8">appsceoncept/utils/logwriter.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        app "appsceoncept/internal"
+        "appsceoncept/utils"
+        "context"
+        "errors"
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+        "time"
+)
+
+// main entry point for the application
+func main() <span class="cov0" title="0">{
+
+        log.SetFlags(0)
+        log.SetOutput(utils.LogWriter{})
+        defer utils.RecoverPanic()() // recover from panic and log it
+
+        app := app.New()
+
+        stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+        server := &amp;http.Server{
+                Addr:    ":8080",
+                Handler: app.Server,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+
+                log.Println("server up and listening...")
+
+                log.Println("server handling requests at " + server.Addr)
+                log.Printf("server running at http://localhost%s", server.Addr)
+
+                // start http server
+                if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) </span><span class="cov0" title="0">{
+                        log.Println(fmt.Errorf("HTTP server error: %v", err))
+
+                }</span>
+
+                <span class="cov0" title="0">log.Println("stopped serving new connections.")</span>
+
+        }()
+
+        <span class="cov0" title="0">&lt;-stop
+
+        shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 5*time.Second)
+        defer shutdownRelease()
+
+        if err := server.Shutdown(shutdownCtx); err != nil </span><span class="cov0" title="0">{
+                log.Println(fmt.Errorf("http shutdown error: %v", err))
+        }</span>
+        <span class="cov0" title="0">log.Println("graceful shutdown complete.")</span>
+
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package app
+
+import (
+        "appsceoncept/internal/metrics"
+        "appsceoncept/utils"
+        "net/http"
+
+        "github.com/TickLabVN/tonic"
+        "github.com/gin-gonic/gin"
+)
+
+// App we are using this struct to the main services
+type App struct {
+        Server  *gin.Engine
+        metrics metrics.Service
+}
+
+// New initializes the app
+func New() *App <span class="cov8" title="1">{
+        app := &amp;App{}
+
+        app.setupMetrics()
+        app.setupRoutes()
+
+        return app
+
+}</span>
+
+// setupMetrics initializes the metrics service
+func (a *App) setupMetrics() <span class="cov8" title="1">{
+        // Initialize metrics
+        a.metrics = metrics.New(metrics.WithCustomSolution()) // or metrics.WithPrometheus() for Prometheus metrics
+}</span>
+
+// setupRoutes initializes the HTTP routes for the application and defines the openapi spec for the application
+func (a *App) setupRoutes() <span class="cov8" title="1">{
+        gin.SetMode(gin.ReleaseMode)
+        r := gin.New()
+        r.Use(utils.Logger())
+
+        // Initialize Tonic with updated project info
+        tonic.Init(&amp;tonic.Config{
+                OpenAPIVersion: "3.0.0",
+                Info: map[string]interface{}{
+                        "title":       "FizzBuzz API",
+                        "description": "A simple FizzBuzz API with metrics",
+                        "version":     "1.0.0",
+                },
+        })
+
+        // Redirect root to Swagger UI
+        r.GET("/", func(c *gin.Context) </span><span class="cov0" title="0">{
+                c.Redirect(http.StatusFound, "/swagger")
+        }</span>)
+
+        <span class="cov8" title="1">tonic.CreateRoutes("", []tonic.Route{
+                {
+                        Method: tonic.Get,
+                        Url:    FizzBuzzEndpoint, // "fizzbuzz"
+                        HandlerRegister: func(path string) </span><span class="cov8" title="1">{
+                                r.GET(path, a.HandlerFizzBuzz)
+                        }</span>,
+                        Schema: &amp;tonic.RouteSchema{
+                                Summary:     "Generate a FizzBuzz sequence",
+                                Description: "Returns a sequence where certain numbers are replaced by custom strings. In this example, the replacement string is 'joaquim'.",
+                                Querystring: FizzBuzzParams{},
+                                Response: map[int]any{
+                                        200: []string{
+                                                "1", "joaquim", "3", "joaquim", "5", "joaquim", "7", "joaquim", "9", "joaquim",
+                                        },
+                                        400: map[string]string{"error": "invalid parameters"},
+                                },
+                        },
+
+                        Tags: []string{"FizzBuzz"},
+                },
+                {
+                        Method: tonic.Get,
+                        Url:    MetricsEndpoint, // "metrics"
+                        HandlerRegister: func(path string) <span class="cov8" title="1">{
+                                r.GET(path, a.HandlerMetrics)
+                        }</span>,
+                        Schema: &amp;tonic.RouteSchema{
+                                Summary: "Incremental metric counter",
+                                Description: "Returns the total count for a specific combination of query parameters. If the same combination is sent again, the total increments by one. &lt;br&gt;" +
+                                        "For example:&lt;br&gt;" +
+                                        `Request: "int1=&amp;int2=&amp;limit=10&amp;str1=joaquim&amp;str2=ana", Total: 12345` + "&lt;br&gt;" +
+                                        `Request: "int1=&amp;int2=&amp;limit=10&amp;str1=joaquim&amp;str2=joaquim", Total: 1`,
+                        },
+                        Tags: []string{"Metrics"},
+                },
+        })
+
+        // Serve Swagger documentation
+        <span class="cov8" title="1">r.GET("/swagger/*w", gin.WrapH(http.StripPrefix("/swagger", tonic.GetHandler())))
+
+        a.Server = r</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package app
+
+import (
+        "appsceoncept/internal/metrics"
+        "embed"
+        "net/http"
+        "text/template"
+
+        "github.com/gin-gonic/gin"
+)
+
+//go:embed metrics
+var metricsfs embed.FS
+
+// HandlerMetrics handles the metrics endpoint, fetching and displaying metrics data.
+func (a *App) HandlerMetrics(c *gin.Context) <span class="cov8" title="1">{
+        // Fetch metrics data
+        rows, maxs, err := a.metrics.Data()
+        if err != nil </span><span class="cov8" title="1">{
+                c.String(http.StatusInternalServerError, "error fetching metrics: %v", err)
+                return
+        }</span>
+
+        // Parse the template directly from embed.FS
+        <span class="cov8" title="1">tmpl, err := template.ParseFS(metricsfs, "metrics/template.html")
+        if err != nil </span><span class="cov0" title="0">{
+                c.String(http.StatusInternalServerError, "error parsing template: %v", err)
+                return
+        }</span>
+
+        // Render template with data
+        <span class="cov8" title="1">c.Status(http.StatusOK)
+        c.Header("Content-Type", "text/html; charset=utf-8")
+
+        data := struct {
+                Rows []metrics.MetricRow
+                Maxs []metrics.MetricRow
+        }{
+                Rows: rows,
+                Maxs: maxs,
+        }
+
+        if err := tmpl.Execute(c.Writer, data); err != nil </span><span class="cov0" title="0">{
+                c.String(http.StatusInternalServerError, "error executing template: %v", err)
+                return
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package app
+
+import (
+        "log"
+        "net/http"
+        "strconv"
+        "strings"
+
+        "github.com/gin-gonic/gin"
+)
+
+type FizzBuzzParams struct {
+        Int1  int    `form:"int1" json:"int1" binding:"required,gt=0"`
+        Int2  int    `form:"int2" json:"int2" binding:"required,gt=0"`
+        Limit int    `form:"limit" json:"limit" binding:"required,gt=0,lte=10000"`
+        Str1  string `form:"str1" json:"str1" binding:"required,max=50"`
+        Str2  string `form:"str2" json:"str2" binding:"required,max=50"`
+}
+
+// HandlerFizzBuzz handles the FizzBuzz endpoint.
+func (a *App) HandlerFizzBuzz(c *gin.Context) <span class="cov8" title="1">{
+
+        // log.Printf("[%s] handler hit\n", FizzBuzzEndpoint)
+
+        var params FizzBuzzParams
+
+        // Bind and validate query parameters
+        if err := c.ShouldBindQuery(&amp;params); err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{
+                        "error": "invalid parameters: " + err.Error(),
+                })
+                log.Printf("[%s] %v\n", FizzBuzzEndpoint, err)
+                return
+        }</span>
+
+        // Increase metric
+        <span class="cov8" title="1">a.metrics.IncHits(params.Int1, params.Int2, params.Limit, params.Str1, params.Str2)
+
+        // Build result using strings.Builder
+        var sb strings.Builder
+        results := make([]string, 0, params.Limit)
+        for i := 1; i &lt;= params.Limit; i++ </span><span class="cov8" title="1">{
+                sb.Reset()
+                if i%params.Int1 == 0 </span><span class="cov8" title="1">{
+                        sb.WriteString(params.Str1)
+                }</span>
+                <span class="cov8" title="1">if i%params.Int2 == 0 </span><span class="cov8" title="1">{
+                        sb.WriteString(params.Str2)
+                }</span>
+                <span class="cov8" title="1">if sb.Len() == 0 </span><span class="cov8" title="1">{
+                        sb.WriteString(strconv.Itoa(i))
+                }</span>
+                <span class="cov8" title="1">results = append(results, sb.String())</span>
+        }
+
+        <span class="cov8" title="1">c.JSON(http.StatusOK, results)</span>
+
+        // log.Printf("[%s] handler complete\n", FizzBuzzEndpoint)
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package metrics
+
+import (
+        "fmt"
+        "log"
+        "strings"
+        "sync"
+
+        "github.com/prometheus/client_golang/prometheus"
+)
+
+// Service defines the interface for the metrics service.
+type Service interface {
+        Data() ([]MetricRow, []MetricRow, error)
+        IncHits(values ...any)
+}
+
+type Metrics struct {
+
+        // control metrics
+        usePrometheus bool
+        useCustom     bool
+
+        // custom metrics
+        metricsMap map[string]float64
+        mu         sync.RWMutex
+
+        // prometheus metrics
+        FizzBuzzCounterRequests *prometheus.CounterVec // will collect metrics for FizzBuzz requests in memory
+}
+
+type MetricRow struct {
+        Request string
+        Total   float64
+}
+
+// Fixed order of label names
+var fixedOrder = []string{"int1", "int2", "limit", "str1", "str2"}
+
+// New creates a new metrics service.
+func New(opts ...Option) Service <span class="cov0" title="0">{
+
+        m := &amp;Metrics{}
+        for _, opt := range opts </span><span class="cov0" title="0">{
+                opt(m)
+        }</span>
+
+        <span class="cov0" title="0">switch </span>{
+        case m.useCustom &amp;&amp; m.usePrometheus:<span class="cov0" title="0">
+                panic("cannot use both custom and prometheus metrics at the same time!")</span>
+        case m.useCustom:<span class="cov0" title="0">
+                m.metricsMap = make(map[string]float64)</span>
+        case m.usePrometheus:<span class="cov0" title="0">
+                m.FizzBuzzCounterRequests = prometheus.NewCounterVec(
+                        prometheus.CounterOpts{
+                                Name: "fizzbuzz_requests_total",
+                                Help: "Total number of FizzBuzz requests",
+                        },
+                        fixedOrder, // []string{"int1", "int2", "limit", "str1", "str2"},
+                )
+
+                prometheus.MustRegister(m.FizzBuzzCounterRequests)</span>
+
+        default:<span class="cov0" title="0">
+                // No metrics
+                log.Println("metrics are disabled.")</span>
+        }
+
+        <span class="cov0" title="0">return m</span>
+
+}
+
+type Option func(*Metrics)
+
+func WithPrometheus() Option <span class="cov0" title="0">{
+        return func(m *Metrics) </span><span class="cov0" title="0">{
+                m.usePrometheus = true
+        }</span>
+}
+
+func WithCustomSolution() Option <span class="cov0" title="0">{
+        return func(m *Metrics) </span><span class="cov0" title="0">{
+                m.useCustom = true
+        }</span>
+}
+
+// Data returns all collected metrics and the ones with the highest total.
+func (m *Metrics) Data() ([]MetricRow, []MetricRow, error) <span class="cov0" title="0">{
+        var rows []MetricRow
+        var maxs []MetricRow
+        var maxTotal float64
+
+        //  track max
+        addRow := func(r MetricRow) </span><span class="cov0" title="0">{
+                rows = append(rows, r)
+                if r.Total &gt; maxTotal </span><span class="cov0" title="0">{
+                        maxTotal = r.Total
+                        maxs = []MetricRow{r} // new max found, reset list
+                }</span> else<span class="cov0" title="0"> if r.Total == maxTotal </span><span class="cov0" title="0">{
+                        maxs = append(maxs, r) // same max, append
+                }</span>
+        }
+
+        <span class="cov0" title="0">if m.usePrometheus </span><span class="cov0" title="0">{
+                metrics, err := prometheus.DefaultGatherer.Gather()
+                if err != nil </span><span class="cov0" title="0">{
+                        return rows, maxs, fmt.Errorf("failed to gather prometheus metrics: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">for _, mf := range metrics </span><span class="cov0" title="0">{
+                        if mf.GetName() == "fizzbuzz_requests_total" </span><span class="cov0" title="0">{
+                                for _, metric := range mf.GetMetric() </span><span class="cov0" title="0">{
+                                        labels := []string{}
+                                        for _, lp := range metric.GetLabel() </span><span class="cov0" title="0">{
+                                                labels = append(labels, lp.GetName()+"="+lp.GetValue())
+                                        }</span>
+                                        <span class="cov0" title="0">addRow(MetricRow{
+                                                Request: strings.Join(labels, "&amp;"),
+                                                Total:   metric.GetCounter().GetValue(),
+                                        })</span>
+                                }
+                        }
+                }
+        }
+
+        <span class="cov0" title="0">if m.useCustom </span><span class="cov0" title="0">{
+                m.mu.Lock()
+                defer m.mu.Unlock()
+                for k, v := range m.metricsMap </span><span class="cov0" title="0">{
+                        addRow(MetricRow{
+                                Request: k,
+                                Total:   v,
+                        })
+                }</span>
+        }
+
+        <span class="cov0" title="0">return rows, maxs, nil</span>
+}
+
+// IncHits increments the hit counter for a specific combination of query parameters.
+func (m *Metrics) IncHits(values ...any) <span class="cov0" title="0">{
+
+        // Convert all values to string
+        lvs := make([]string, len(values))
+        for i, v := range values </span><span class="cov0" title="0">{
+                lvs[i] = fmt.Sprint(v)
+        }</span>
+
+        <span class="cov0" title="0">if m.usePrometheus </span><span class="cov0" title="0">{
+                m.FizzBuzzCounterRequests.WithLabelValues(lvs...).Inc()
+        }</span>
+
+        <span class="cov0" title="0">if m.useCustom </span><span class="cov0" title="0">{
+                m.mu.Lock()
+                defer m.mu.Unlock()
+
+                // Build the key in the format field=value&amp;...
+                pairs := make([]string, len(lvs))
+                for i, v := range lvs </span><span class="cov0" title="0">{
+                        // Prevent panic if fewer values than fieldNames are passed
+                        name := fmt.Sprintf("field%d", i)
+                        if i &lt; len(fixedOrder) </span><span class="cov0" title="0">{
+                                name = fixedOrder[i]
+                        }</span>
+                        <span class="cov0" title="0">pairs[i] = name + "=" + v</span>
+                }
+
+                <span class="cov0" title="0">key := strings.Join(pairs, "&amp;")
+                m.metricsMap[key]++</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package fake
+
+import (
+        "github.com/brianvoe/gofakeit/v7"
+)
+
+var (
+        // Pre-generate up to 20 random first names for str1 and str2
+        str1Values = generateRandomNames(2)
+        str2Values = generateRandomNames(2)
+
+        // Pre-generate integer ranges for int1, int2, limit
+        int1Values  = generateIntRange(1, 2)
+        int2Values  = generateIntRange(1, 2)
+        limitValues = generateIntRange(1, 2)
+)
+
+// Generates up to `count` random first names
+func generateRandomNames(count int) []string <span class="cov0" title="0">{
+        names := make([]string, count)
+        for i := 0; i &lt; count; i++ </span><span class="cov0" title="0">{
+                names[i] = gofakeit.FirstName()
+        }</span>
+        <span class="cov0" title="0">return names</span>
+}
+
+// Generates a slice of integers between min and max (inclusive)
+func generateIntRange(min, max int) []int <span class="cov0" title="0">{
+        values := make([]int, 0, max-min+1)
+        for i := min; i &lt;= max; i++ </span><span class="cov0" title="0">{
+                values = append(values, i)
+        }</span>
+        <span class="cov0" title="0">return values</span>
+}
+
+// Random pickers
+func Int1() int <span class="cov0" title="0">{
+        return gofakeit.RandomInt(int1Values)
+}</span>
+
+func Int2() int <span class="cov0" title="0">{
+        return gofakeit.RandomInt(int2Values)
+}</span>
+
+func Limit() int <span class="cov0" title="0">{
+        return gofakeit.RandomInt(limitValues)
+}</span>
+
+func Str1() string <span class="cov0" title="0">{
+        return gofakeit.RandomString(str1Values)
+}</span>
+
+func Str2() string <span class="cov0" title="0">{
+        return gofakeit.RandomString(str2Values)
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package mocks
+
+import "appsceoncept/internal/metrics"
+
+/*******MOCK METRICS SERVICE *******/
+type MockMetricsService struct {
+        DataFunc    func() ([]metrics.MetricRow, []metrics.MetricRow, error)
+        IncHitsFunc func(values ...any)
+}
+
+func (m *MockMetricsService) Data() ([]metrics.MetricRow, []metrics.MetricRow, error) <span class="cov0" title="0">{
+        if m.DataFunc != nil </span><span class="cov0" title="0">{
+                return m.DataFunc()
+        }</span>
+        <span class="cov0" title="0">return nil, nil, nil</span>
+}
+
+func (m *MockMetricsService) IncHits(values ...any) <span class="cov0" title="0">{
+        if m.IncHitsFunc != nil </span><span class="cov0" title="0">{
+                m.IncHitsFunc(values...)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package utils
+
+import (
+        "fmt"
+        "io"
+        "net/http"
+        "os"
+        "path/filepath"
+        "runtime"
+        "time"
+
+        "github.com/gin-gonic/gin"
+        "github.com/mattn/go-isatty"
+)
+
+type consoleColorModeValue int
+
+const (
+        autoColor consoleColorModeValue = iota
+        disableColor
+        forceColor
+)
+
+const (
+        green   = "\033[97;42m"
+        white   = "\033[90;47m"
+        yellow  = "\033[90;43m"
+        red     = "\033[97;41m"
+        blue    = "\033[97;44m"
+        magenta = "\033[97;45m"
+        cyan    = "\033[97;46m"
+        reset   = "\033[0m"
+)
+
+var consoleColorMode = autoColor
+
+// LoggerConfig defines the config for Logger middleware.
+type LoggerConfig struct {
+        // Optional. Default value is gin.defaultLogFormatter
+        Formatter LogFormatter
+
+        // Output is a writer where logs are written.
+        // Optional. Default value is gin.DefaultWriter.
+        Output io.Writer
+
+        // SkipPaths is an url path array which logs are not written.
+        // Optional.
+        SkipPaths []string
+
+        // Skip is a Skipper that indicates which logs should not be written.
+        // Optional.
+        Skip Skipper
+}
+
+// Skipper is a function to skip logs based on provided Context
+type Skipper func(c *gin.Context) bool
+
+// LogFormatter gives the signature of the formatter function passed to LoggerWithFormatter
+type LogFormatter func(params LogFormatterParams) string
+
+// LogFormatterParams is the structure any formatter will be handed when time to log comes
+type LogFormatterParams struct {
+        Request *http.Request
+
+        // TimeStamp shows the time after the server returns a response.
+        TimeStamp time.Time
+        // StatusCode is HTTP response code.
+        StatusCode int
+        // Latency is how much time the server cost to process a certain request.
+        Latency time.Duration
+        // ClientIP equals Context's ClientIP method.
+        ClientIP string
+        // Method is the HTTP method given to the request.
+        Method string
+        // Path is a path the client requests.
+        Path string
+        // ErrorMessage is set if error has occurred in processing the request.
+        ErrorMessage string
+        // isTerm shows whether gin's output descriptor refers to a terminal.
+        isTerm bool
+        // BodySize is the size of the Response Body
+        BodySize int
+        // Keys are the keys set on the request's context.
+        Keys map[string]any
+}
+
+// StatusCodeColor is the ANSI color for appropriately logging http status code to a terminal.
+func (p *LogFormatterParams) StatusCodeColor() string <span class="cov0" title="0">{
+        code := p.StatusCode
+
+        switch </span>{
+        case code &gt;= http.StatusContinue &amp;&amp; code &lt; http.StatusOK:<span class="cov0" title="0">
+                return white</span>
+        case code &gt;= http.StatusOK &amp;&amp; code &lt; http.StatusMultipleChoices:<span class="cov0" title="0">
+                return green</span>
+        case code &gt;= http.StatusMultipleChoices &amp;&amp; code &lt; http.StatusBadRequest:<span class="cov0" title="0">
+                return white</span>
+        case code &gt;= http.StatusBadRequest &amp;&amp; code &lt; http.StatusInternalServerError:<span class="cov0" title="0">
+                return yellow</span>
+        default:<span class="cov0" title="0">
+                return red</span>
+        }
+}
+
+// MethodColor is the ANSI color for appropriately logging http method to a terminal.
+func (p *LogFormatterParams) MethodColor() string <span class="cov0" title="0">{
+        method := p.Method
+
+        switch method </span>{
+        case http.MethodGet:<span class="cov0" title="0">
+                return blue</span>
+        case http.MethodPost:<span class="cov0" title="0">
+                return cyan</span>
+        case http.MethodPut:<span class="cov0" title="0">
+                return yellow</span>
+        case http.MethodDelete:<span class="cov0" title="0">
+                return red</span>
+        case http.MethodPatch:<span class="cov0" title="0">
+                return green</span>
+        case http.MethodHead:<span class="cov0" title="0">
+                return magenta</span>
+        case http.MethodOptions:<span class="cov0" title="0">
+                return white</span>
+        default:<span class="cov0" title="0">
+                return reset</span>
+        }
+}
+
+// ResetColor resets all escape attributes.
+func (p *LogFormatterParams) ResetColor() string <span class="cov0" title="0">{
+        return reset
+}</span>
+
+// IsOutputColor indicates whether can colors be outputted to the log.
+func (p *LogFormatterParams) IsOutputColor() bool <span class="cov0" title="0">{
+        return consoleColorMode == forceColor || (consoleColorMode == autoColor &amp;&amp; p.isTerm)
+}</span>
+
+// defaultLogFormatter is the default log format function Logger middleware uses.
+var defaultLogFormatter = func(param LogFormatterParams) string <span class="cov0" title="0">{
+        // Get caller file and line (adjust call depth if needed)
+        _, file, line, ok := runtime.Caller(3)
+        fileInfo := ""
+        if ok </span><span class="cov0" title="0">{
+                fileInfo = fmt.Sprintf("[%s:%d]", filepath.Base(file), line)
+        }</span> else<span class="cov0" title="0"> {
+                fileInfo = "[unknown]"
+        }</span>
+
+        <span class="cov0" title="0">prefixTimestamp := time.Now().Format("2006/01/02 15:04:05")
+
+        var statusColor, methodColor, resetColor, ginColor string
+        if param.IsOutputColor() </span><span class="cov0" title="0">{
+                statusColor = param.StatusCodeColor()
+                methodColor = param.MethodColor()
+                resetColor = param.ResetColor()
+                ginColor = "\x1b[38;5;240mGIN\x1b[0m" // -- white: \x1b[37mGIN\x1b[0m
+        }</span> else<span class="cov0" title="0"> {
+                ginColor = "GIN"
+        }</span>
+
+        <span class="cov0" title="0">if param.Latency &gt; time.Minute </span><span class="cov0" title="0">{
+                param.Latency = param.Latency.Truncate(time.Second)
+        }</span>
+
+        <span class="cov0" title="0">logBody := fmt.Sprintf("%s %3d %s| %13v | %15s |%s %-7s %s %#v",
+                statusColor, param.StatusCode, resetColor,
+                param.Latency,
+                param.ClientIP,
+                methodColor, param.Method, resetColor,
+                param.Path,
+        )
+
+        return fmt.Sprintf("%s %s %s |%s\n", prefixTimestamp, fileInfo, ginColor, logBody)</span>
+}
+
+// DisableConsoleColor disables color output in the console.
+func DisableConsoleColor() <span class="cov0" title="0">{
+        consoleColorMode = disableColor
+}</span>
+
+// ForceConsoleColor force color output in the console.
+func ForceConsoleColor() <span class="cov0" title="0">{
+        consoleColorMode = forceColor
+}</span>
+
+// ErrorLogger returns a HandlerFunc for any error type.
+func ErrorLogger() gin.HandlerFunc <span class="cov0" title="0">{
+        return ErrorLoggerT(gin.ErrorTypeAny)
+}</span>
+
+// ErrorLoggerT returns a HandlerFunc for a given error type.
+func ErrorLoggerT(typ gin.ErrorType) gin.HandlerFunc <span class="cov0" title="0">{
+        return func(c *gin.Context) </span><span class="cov0" title="0">{
+                c.Next()
+                errors := c.Errors.ByType(typ)
+                if len(errors) &gt; 0 </span><span class="cov0" title="0">{
+                        c.JSON(-1, errors)
+                }</span>
+        }
+}
+
+// Logger instances a Logger middleware that will write the logs to gin.DefaultWriter.
+// By default, gin.DefaultWriter = os.Stdout.
+func Logger() gin.HandlerFunc <span class="cov0" title="0">{
+        return LoggerWithConfig(LoggerConfig{})
+}</span>
+
+// LoggerWithFormatter instance a Logger middleware with the specified log format function.
+func LoggerWithFormatter(f LogFormatter) gin.HandlerFunc <span class="cov0" title="0">{
+        return LoggerWithConfig(LoggerConfig{
+                Formatter: f,
+        })
+}</span>
+
+// LoggerWithWriter instance a Logger middleware with the specified writer buffer.
+// Example: os.Stdout, a file opened in write mode, a socket...
+func LoggerWithWriter(out io.Writer, notlogged ...string) gin.HandlerFunc <span class="cov0" title="0">{
+        return LoggerWithConfig(LoggerConfig{
+                Output:    out,
+                SkipPaths: notlogged,
+        })
+}</span>
+
+// LoggerWithConfig instance a Logger middleware with config.
+func LoggerWithConfig(conf LoggerConfig) gin.HandlerFunc <span class="cov0" title="0">{
+        formatter := conf.Formatter
+        if formatter == nil </span><span class="cov0" title="0">{
+                formatter = defaultLogFormatter
+        }</span>
+
+        <span class="cov0" title="0">out := conf.Output
+        if out == nil </span><span class="cov0" title="0">{
+                out = gin.DefaultWriter
+        }</span>
+
+        <span class="cov0" title="0">notlogged := conf.SkipPaths
+
+        isTerm := true
+
+        if w, ok := out.(*os.File); !ok || os.Getenv("TERM") == "dumb" ||
+                (!isatty.IsTerminal(w.Fd()) &amp;&amp; !isatty.IsCygwinTerminal(w.Fd())) </span><span class="cov0" title="0">{
+                isTerm = false
+        }</span>
+
+        <span class="cov0" title="0">var skip map[string]struct{}
+
+        if length := len(notlogged); length &gt; 0 </span><span class="cov0" title="0">{
+                skip = make(map[string]struct{}, length)
+
+                for _, path := range notlogged </span><span class="cov0" title="0">{
+                        skip[path] = struct{}{}
+                }</span>
+        }
+
+        <span class="cov0" title="0">return func(c *gin.Context) </span><span class="cov0" title="0">{
+                // Start timer
+                start := time.Now()
+                path := c.Request.URL.Path
+                raw := c.Request.URL.RawQuery
+
+                // Process request
+                c.Next()
+
+                // Log only when it is not being skipped
+                if _, ok := skip[path]; ok || (conf.Skip != nil &amp;&amp; conf.Skip(c)) </span><span class="cov0" title="0">{
+                        return
+                }</span>
+
+                <span class="cov0" title="0">param := LogFormatterParams{
+                        Request: c.Request,
+                        isTerm:  isTerm,
+                        Keys:    c.Keys,
+                }
+
+                // Stop timer
+                param.TimeStamp = time.Now()
+                param.Latency = param.TimeStamp.Sub(start)
+
+                param.ClientIP = c.ClientIP()
+                param.Method = c.Request.Method
+                param.StatusCode = c.Writer.Status()
+                param.ErrorMessage = c.Errors.ByType(gin.ErrorTypePrivate).String()
+
+                param.BodySize = c.Writer.Size()
+
+                if raw != "" </span><span class="cov0" title="0">{
+                        path = path + "?" + raw
+                }</span>
+
+                <span class="cov0" title="0">param.Path = path
+
+                fmt.Fprint(out, formatter(param))</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package utils
+
+import (
+        "fmt"
+        "log"
+        "os"
+        "path/filepath"
+        "runtime"
+        "strings"
+        "time"
+)
+
+// LogWriter writes log messages with timestamp, file info, level color, and the original message. Just for debugging / test purposes.
+type LogWriter struct{}
+
+func (lw LogWriter) Write(p []byte) (n int, err error) <span class="cov0" title="0">{
+        msg := strings.TrimSpace(string(p))
+
+        // Get file and line of the log call
+        _, file, line, ok := runtime.Caller(3)
+        fileInfo := ""
+        if ok </span><span class="cov0" title="0">{
+                fileInfo = fmt.Sprintf("[%s:%d]", filepath.Base(file), line)
+        }</span>
+
+        // Detect level and color
+        <span class="cov0" title="0">level := detectLogLevel(msg)
+        coloredLevel := colorForLevel(level)
+
+        timestamp := time.Now().Format(timeFormatStr)
+        fmt.Printf("%s %s %s %s\n", timestamp, fileInfo, coloredLevel, msg)
+
+        return len(p), nil</span>
+}
+
+const timeFormatStr = "2006/01/02 15:04:05"
+
+// Terminal color codes (ANSI)
+type Color uint8
+
+const (
+        Black Color = iota + 30
+        Red
+        Green
+        Yellow
+        Blue
+        Magenta
+        Cyan
+        White
+)
+
+func (c Color) apply(s string) string <span class="cov0" title="0">{
+        return fmt.Sprintf("\x1b[%dm%s\x1b[0m", c, s)
+}</span>
+
+// Log levels
+type LogLevel string
+
+const (
+        LevelError LogLevel = "ERROR"
+        LevelWarn  LogLevel = "WARN"
+        LevelDebug LogLevel = "DEBUG"
+        LevelInfo  LogLevel = "INFO"
+)
+
+func colorForLevel(level LogLevel) string <span class="cov0" title="0">{
+        switch level </span>{
+        case LevelError:<span class="cov0" title="0">
+                return Red.apply("ERROR")</span>
+        case LevelWarn:<span class="cov0" title="0">
+                return Yellow.apply("WARN")</span>
+        case LevelDebug:<span class="cov0" title="0">
+                return Blue.apply("DEBUG")</span>
+        case LevelInfo:<span class="cov0" title="0">
+                fallthrough</span>
+        default:<span class="cov0" title="0">
+                return Cyan.apply("INFO")</span>
+        }
+}
+
+// detectLogLevel tries to determine the log level from message content.
+func detectLogLevel(msg string) LogLevel <span class="cov0" title="0">{
+        upper := strings.ToUpper(msg)
+        switch </span>{
+        case strings.Contains(upper, "ERROR"),
+                strings.Contains(upper, "FAILED"),
+                strings.Contains(upper, "FAIL"),
+                strings.Contains(upper, "FATAL"),
+                strings.Contains(upper, "PANIC"),
+                strings.Contains(upper, "CRITICAL"):<span class="cov0" title="0">
+                return LevelError</span>
+        case strings.Contains(upper, "WARN"),
+                strings.Contains(upper, "WARNING"):<span class="cov0" title="0">
+                return LevelWarn</span>
+        case strings.Contains(upper, "DEBUG"),
+                strings.Contains(upper, "DEBUGGING"),
+                strings.Contains(upper, "TRACE"):<span class="cov0" title="0">
+                return LevelDebug</span>
+        default:<span class="cov0" title="0">
+                return LevelInfo</span>
+        }
+}
+
+func RecoverPanic() func() <span class="cov0" title="0">{
+        return func() </span><span class="cov0" title="0">{
+                if r := recover(); r != nil </span><span class="cov0" title="0">{
+                        msg := fmt.Sprintf("panic: %v", r)
+                        log.Print(msg)
+                        os.Exit(1)
+                }</span>
+        }
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
